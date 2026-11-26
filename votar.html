@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="es">
+<head>
+<title>Votar · Acrobacia Libre Awards 2027</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07060b">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="config.js"></script>
+<script src="common.js"></script>
+
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"><path d="M20 8h24v14a12 12 0 0 1-24 0V8z"/><path d="M20 13H10v5a10 10 0 0 0 10 10M44 13h10v5a10 10 0 0 1-10 10"/><path d="M32 34v10M22 56h20l-3-12H25z"/></svg><b>Acrobacia Libre <span>Awards</span></b></a>
+  <div id="userchip"></div>
+</header>
+
+<main class="wrap">
+  <section class="hero" style="padding-bottom:0">
+    <p class="eyebrow">Paso 2</p>
+    <h1 style="font-size:clamp(40px,9vw,70px)"><span class="gold-text">Votación</span></h1>
+  </section>
+  <div id="app"><div class="loader"></div></div>
+</main>
+<script>
+(async () => {
+  const app = AW.$('#app');
+  const me = await AW.boot(app, { needHorario: true });
+  const H = me.horarios.find(h => h.id === me.user.horario);
+  const b = await AW.api('getBallot');
+  const ph = b.phase;
+
+  if (!ph.voteOpen) {
+    if (ph.voteEnded) {
+      app.innerHTML = `<section class="card empty"><div class="trophy">${AW.ICONS.trophy}</div><h2>La votación terminó</h2><p>Los ganadores se revelan en vivo en la premiación. ¡No faltes!</p></section>`;
+      return;
+    }
+    if (!ph.voteStart) {
+      app.innerHTML = `<section class="card empty"><h2>La votación aún no abre</h2><p>Pronto anunciaremos la fecha. Mientras, puedes <a href="nominar.html">nominar</a>.</p></section>`;
+      return;
+    }
+    app.innerHTML = `<section class="card empty"><p class="eyebrow">La votación abre en</p><div class="countdown" id="cd"></div>
+      <p>${AW.fmtDate(ph.voteStart)}</p><a class="btn" href="nominar.html">Mientras, nomina a alguien</a></section>`;
+    const target = new Date(ph.voteStart).getTime(), skew = Date.now() - new Date(ph.now).getTime();
+    const tick = () => {
+      let s = Math.max(0, Math.floor((target - (Date.now() - skew)) / 1000));
+      if (s === 0) return location.reload();
+      const d = Math.floor(s / 86400); s %= 86400; const h = Math.floor(s / 3600); s %= 3600; const m = Math.floor(s / 60); s %= 60;
+      AW.$('#cd').innerHTML = [[d, 'días'], [h, 'horas'], [m, 'min'], [s, 'seg']].map(x => `<div><b>${x[0]}</b><small>${x[1]}</small></div>`).join('');
+    };
+    tick(); setInterval(tick, 1000);
+    return;
+  }
+
+  const votes = b.myVotes;
+  const cats = b.categories;
+  const votable = cats.filter(c => c.nominees.length);
+  app.innerHTML = `
+    <div class="progress-sticky"><div style="display:flex;justify-content:space-between;font-size:13px"><span>Horario <b>${AW.esc(H.name)}</b></span><span id="cnt"></span></div>
+      <div class="progress"><i id="bar"></i></div></div>
+    <p class="muted" style="font-size:14px">Toca a tu favorito en cada categoría. Tu voto se guarda al tiro y puedes cambiarlo hasta el ${AW.fmtDate(ph.voteEnd)}.</p>
+    ${cats.map(c => `
+      <section class="vote-cat" id="c-${c.id}">
+        <div class="head"><h2>${AW.esc(c.name)}</h2><span class="badge ${c.type === 'video' ? 'pending' : 'approved'}">${c.type === 'video' ? 'Video' : H.name}</span></div>
+        ${c.nominees.length ? `<div class="nom-grid ${c.type}">${c.nominees.map(n => c.type === 'photo' ? `
+          <button class="nom ${votes[c.id] === n.id ? 'sel' : ''}" data-c="${c.id}" data-n="${n.id}">
+            <img loading="lazy" src="${AW.imgUrl(n.thumbId, 600)}" alt="${AW.esc(n.nomineeName)}">
+            <div class="cap"><span>${AW.esc(n.nomineeName)}${n.description ? `<small>${AW.esc(n.description)}</small>` : ''}</span><span class="tick">${AW.ICONS.check}</span></div>
+          </button>` : `
+          <div class="nom ${votes[c.id] === n.id ? 'sel' : ''}" data-box="${n.id}">
+            <div class="media">${AW.videoEmbed(n)}</div>
+            <div class="cap"><span>${AW.esc(n.nomineeName)}${n.description ? `<small>${AW.esc(n.description)}</small>` : ''}</span>
+              <button class="btn sm gold" data-c="${c.id}" data-n="${n.id}">${votes[c.id] === n.id ? '✓ Votado' : 'Votar'}</button></div>
+          </div>`).join('')}</div>` : '<p class="empty">Aún no hay nominados aprobados en esta categoría.</p>'}
+      </section>`).join('')}
+    <section class="card empty" id="done" hidden><div class="trophy">${AW.ICONS.trophy}</div><h2>¡Votaste en todo!</h2><p>Gracias. Los resultados se revelan en vivo en la premiación.</p></section>`;
+
+  function refresh() {
+    const n = votable.filter(c => votes[c.id]).length;
+    AW.$('#cnt').textContent = n + ' de ' + votable.length + ' categorías';
+    AW.$('#bar').style.width = (votable.length ? n / votable.length * 100 : 0) + '%';
+    AW.$('#done').hidden = !(votable.length && n === votable.length);
+  }
+  refresh();
+
+  app.addEventListener('click', async e => {
+    const el = e.target.closest('[data-n]'); if (!el) return;
+    const c = el.dataset.c, n = el.dataset.n;
+    if (votes[c] === n) return;
+    const prev = votes[c];
+    const paint = (id) => {
+      AW.$$(`#c-${c} .nom`).forEach(x => x.classList.toggle('sel', (x.dataset.n || x.dataset.box) === id));
+      AW.$$(`#c-${c} .btn[data-n]`).forEach(x => x.textContent = x.dataset.n === id ? '✓ Votado' : 'Votar');
+    };
+    votes[c] = n; paint(n); refresh();
+    try {
+      await AW.api('vote', { categoryId: c, nominationId: n });
+      AW.toast('Voto guardado ✓', 'ok');
+      const idx = cats.findIndex(k => k.id === c);
+      const next = cats.slice(idx + 1).find(k => k.nominees.length && !votes[k.id]);
+      if (next && !prev) setTimeout(() => AW.$('#c-' + next.id).scrollIntoView({ behavior: 'smooth', block: 'start' }), 450);
+    } catch (err) {
+      votes[c] = prev; paint(prev); refresh(); AW.toast(err.message, 'err');
+    }
+  });
+})();
+</script>
+</body>
+</html>

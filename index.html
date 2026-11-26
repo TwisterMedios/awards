@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+<title>Acrobacia Libre Awards 2027</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07060b">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="config.js"></script>
+<script src="common.js"></script>
+
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"><path d="M20 8h24v14a12 12 0 0 1-24 0V8z"/><path d="M20 13H10v5a10 10 0 0 0 10 10M44 13h10v5a10 10 0 0 1-10 10"/><path d="M32 34v10M22 56h20l-3-12H25z"/></svg><b>Acrobacia Libre <span>Awards</span></b></a>
+  <div id="userchip"></div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <p class="eyebrow">Acrobacia Libre presenta</p>
+    <h1><span class="gold-text">Acrobacia Libre<br>Awards 2027</span></h1>
+    <p class="muted" style="max-width:520px;margin:16px auto 0">Nomina a tus compañeros con la foto o el video perfecto, y vota por los mejores de tu horario. Los ganadores se revelan en vivo el día del evento.</p>
+  </section>
+  <div id="app"><div class="loader"></div></div>
+</main>
+<footer class="foot">Acrobacia Libre Awards 2027</footer>
+<script>
+(async () => {
+  const app = AW.$('#app');
+  const me = await AW.boot(app);
+  const ph = me.phase;
+  const nomTxt = ph.nomOpen ? (ph.nomEnd ? 'Abiertas hasta el ' + AW.fmtDate(ph.nomEnd) : 'Abiertas') : 'Cerradas';
+  let voteTxt;
+  if (ph.voteOpen) voteTxt = 'Abierta' + (ph.voteEnd ? ' hasta el ' + AW.fmtDate(ph.voteEnd) : '');
+  else if (ph.voteEnded) voteTxt = 'Terminó. ¡Nos vemos en la premiación!';
+  else voteTxt = ph.voteStart ? 'Abre el ' + AW.fmtDate(ph.voteStart) : 'Pronto anunciaremos la fecha';
+  app.innerHTML = `
+    <div class="home-grid">
+      <a class="big-link" href="nominar.html">
+        ${AW.ICONS.photo}
+        <h2>Nominar</h2>
+        <p class="muted">Sube fotos o videos de tus nominados.</p>
+        <p><span class="badge ${ph.nomOpen ? 'approved' : 'rejected'}">${nomTxt}</span></p>
+      </a>
+      <a class="big-link" href="votar.html">
+        ${AW.ICONS.trophy}
+        <h2>Votar</h2>
+        <p class="muted">Elige un ganador por categoría.</p>
+        <p><span class="badge ${ph.voteOpen ? 'approved' : 'pending'}">${voteTxt}</span></p>
+      </a>
+    </div>
+    ${me.isAdmin ? '<p style="text-align:center;margin-top:24px"><a class="btn" href="admin.html">Ir al panel de control</a></p>' : ''}`;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="es">
+<head>
+<title>Panel · Acrobacia Libre Awards 2027</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07060b">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="config.js"></script>
+<script src="common.js"></script>
+
+<style>
+.wrap{max-width:1180px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px;position:sticky;top:0;z-index:6;padding:10px 0;background:linear-gradient(var(--bg) 75%,transparent)}
+.tabs button{font:inherit;font-size:14px;font-weight:600;padding:9px 16px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer}
+.tabs button.on{background:var(--gold);color:#1b1305;border-color:var(--gold)}
+.tabs .n{background:var(--bad);color:#fff;border-radius:99px;padding:1px 7px;font-size:11px;margin-left:6px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.kpi b{font-family:var(--display);font-weight:400;font-size:38px;color:var(--gold2);display:block;line-height:1.1}
+.kpi span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.filters select{width:auto}
+.ngrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:14px}
+.ncard{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+.ncard .th{aspect-ratio:4/3;background:#000;position:relative;cursor:pointer}
+.ncard .th img{width:100%;height:100%;object-fit:cover}
+.ncard .th .ty{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.7);border-radius:8px;padding:4px 8px;font-size:11px;display:flex;gap:4px;align-items:center}
+.ncard .th .ty svg{width:14px;height:14px}
+.ncard .bd{padding:12px;display:grid;gap:8px;flex:1}
+.ncard input,.ncard select{padding:8px 10px;font-size:13px}
+.ncard .by{font-size:11px;color:var(--muted)}
+.ncard .act{display:flex;gap:6px;padding:0 12px 12px}
+.ncard .act .btn{flex:1}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+td img{width:38px;height:38px;object-fit:cover;border-radius:8px;vertical-align:middle;margin-right:8px;background:#222}
+td input[type=number]{width:80px;padding:6px 8px}
+tr.win td{background:rgba(242,193,78,.08)}
+.grp{border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0;background:rgba(0,0,0,.2)}
+.grp .gh{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.warn{color:var(--gold);font-size:13px;font-weight:600}
+.dates{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:640px){.dates{grid-template-columns:1fr}}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:80;display:grid;place-items:center;padding:20px}
+.modal .box{width:min(960px,100%);max-height:90vh}
+.modal img,.modal iframe,.modal video{width:100%;max-height:80vh;object-fit:contain;border:0;border-radius:12px;background:#000}
+.modal iframe{aspect-ratio:16/9;height:auto}
+.check{display:flex;gap:10px;align-items:center;font-size:14px;margin:8px 0}
+.check input{width:auto}
+code{background:rgba(255,255,255,.08);padding:2px 6px;border-radius:6px;font-size:12px}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"><path d="M20 8h24v14a12 12 0 0 1-24 0V8z"/><path d="M20 13H10v5a10 10 0 0 0 10 10M44 13h10v5a10 10 0 0 1-10 10"/><path d="M32 34v10M22 56h20l-3-12H25z"/></svg><b>Acrobacia Libre <span>Awards</span></b></a>
+  <div id="userchip"></div>
+</header>
+
+<main class="wrap">
+  <div id="app"><div class="loader"></div></div>
+</main>
+<script>
+(async () => {
+  const app = AW.$('#app');
+  const me = await AW.boot(app);
+  if (!me.isAdmin) { app.innerHTML = '<section class="card empty"><h2>Sin acceso</h2><p>Esta cuenta no es administradora.</p></section>'; return; }
+  let D = null, tab = 'resumen';
+  const F = { status: 'pending', cat: '', hor: '' };
+  const H = id => (me.horarios.find(h => h.id === id) || { name: id === 'GENERAL' ? 'Todos' : id }).name;
+  const C = id => me.categories.find(c => c.id === id) || { name: id, type: 'photo' };
+
+  async function load() {
+    D = await AW.api('adminData');
+    render();
+  }
+  function render() {
+    const pend = D.nominations.filter(n => n.status === 'pending').length;
+    app.innerHTML = `
+      <h2 style="margin-top:10px">Panel de control</h2>
+      <div class="tabs">
+        ${[['resumen', 'Resumen'], ['noms', 'Nominaciones' + (pend ? `<span class="n">${pend}</span>` : '')], ['fechas', 'Fechas'], ['res', 'Resultados'], ['pres', 'Presentación'], ['users', 'Usuarios']]
+        .map(t => `<button data-t="${t[0]}" class="${tab === t[0] ? 'on' : ''}">${t[1]}</button>`).join('')}
+        <button onclick="location.reload()" title="Recargar datos">↻</button>
+      </div>
+      <div id="view"></div>`;
+    AW.$$('.tabs [data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; render(); });
+    ({ resumen: vResumen, noms: vNoms, fechas: vFechas, res: vRes, pres: vPres, users: vUsers })[tab](AW.$('#view'));
+  }
+
+  // ---------------- RESUMEN ----------------
+  function vResumen(v) {
+    const t = D.results.totals, ph = D.phase, N = D.nominations;
+    const st = s => N.filter(n => n.status === s).length;
+    const byH = t.participantsByHorario || {};
+    v.innerHTML = `
+      <div class="kpis">
+        <div class="kpi"><b>${st('pending')}</b><span>Pendientes</span></div>
+        <div class="kpi"><b>${st('approved')}</b><span>Aprobadas</span></div>
+        <div class="kpi"><b>${st('rejected')}</b><span>Rechazadas</span></div>
+        <div class="kpi"><b>${t.registered}</b><span>Usuarios registrados</span></div>
+        <div class="kpi"><b>${t.participants}</b><span>Personas que votaron</span></div>
+        <div class="kpi"><b>${t.votes}</b><span>Votos emitidos</span></div>
+      </div>
+      <section class="card">
+        <h3>Estado</h3>
+        <p>Nominaciones: <span class="badge ${ph.nomOpen ? 'approved' : 'rejected'}">${ph.nomOpen ? 'abiertas' : 'cerradas'}</span>
+          &nbsp; Votación: <span class="badge ${ph.voteOpen ? 'approved' : 'pending'}">${ph.voteOpen ? 'abierta' : ph.voteEnded ? 'terminada' : 'no ha abierto'}</span></p>
+        <p class="muted" style="font-size:14px">Votación: ${AW.fmtDate(ph.voteStart)} → ${AW.fmtDate(ph.voteEnd)}</p>
+        <h3 style="margin-top:16px">Votantes por horario</h3>
+        <p>${me.horarios.map(h => `<span class="pill" style="display:inline-block;margin:3px;padding:6px 12px;border:1px solid var(--line);border-radius:99px">${h.name}: <b>${byH[h.id] || 0}</b></span>`).join('')}</p>
+        <p style="margin-top:16px"><a class="btn sm" target="_blank" href="${D.links.sheet}">Abrir base de datos (Sheet)</a>
+          <a class="btn sm" target="_blank" href="${D.links.folder}">Abrir carpeta en Drive</a></p>
+      </section>`;
+  }
+
+  // ---------------- NOMINACIONES ----------------
+  function vNoms(v) {
+    const list = D.nominations.filter(n => (!F.status || n.status === F.status) && (!F.cat || n.categoryId === F.cat) && (!F.hor || n.horario === F.hor))
+      .sort((a, b) => a.createdAt < b.createdAt ? 1 : -1);
+    v.innerHTML = `
+      <div class="filters">
+        <select id="fs"><option value="">Todos los estados</option>${[['pending', 'Pendientes'], ['approved', 'Aprobadas'], ['rejected', 'Rechazadas']].map(o => `<option value="${o[0]}" ${F.status === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
+        <select id="fc"><option value="">Todas las categorías</option>${me.categories.map(c => `<option value="${c.id}" ${F.cat === c.id ? 'selected' : ''}>${AW.esc(c.name)}</option>`).join('')}</select>
+        <select id="fh"><option value="">Todos los horarios</option>${me.horarios.concat([{ id: 'GENERAL', name: 'Video (todos)' }]).map(h => `<option value="${h.id}" ${F.hor === h.id ? 'selected' : ''}>${h.name}</option>`).join('')}</select>
+        <span class="muted" style="font-size:13px">${list.length} resultado(s)</span>
+        ${list.some(n => n.status !== 'approved') ? `<button class="btn sm ok" id="bulk">Aprobar todas las visibles</button>` : ''}
+      </div>
+      <div class="ngrid">${list.map(n => {
+        const c = C(n.categoryId);
+        return `<div class="ncard" data-id="${n.id}">
+          <div class="th" data-view="${n.id}"><img src="${AW.imgUrl(n.thumbId, 500)}" onerror="this.style.opacity=0">
+            <span class="ty">${c.type === 'video' ? AW.ICONS.video + 'Video' : AW.ICONS.photo + 'Foto'}</span></div>
+          <div class="bd">
+            <input data-f="nomineeName" value="${AW.esc(n.nomineeName)}" title="Nombre del nominado">
+            <select data-f="categoryId">${me.categories.filter(k => k.type === c.type).map(k => `<option value="${k.id}" ${k.id === n.categoryId ? 'selected' : ''}>${AW.esc(k.name)}</option>`).join('')}</select>
+            ${c.type === 'photo' ? `<select data-f="horario">${me.horarios.map(h => `<option value="${h.id}" ${h.id === n.horario ? 'selected' : ''}>${h.name}</option>`).join('')}</select>` : ''}
+            ${n.description ? `<span class="muted" style="font-size:13px">“${AW.esc(n.description)}”</span>` : ''}
+            <span class="by">Por ${AW.esc(n.submitterName)} · ${AW.esc(n.submitterEmail)}<br>${new Date(n.createdAt).toLocaleString('es-CL')}</span>
+            <span><span class="badge ${n.status}">${{ pending: 'Pendiente', approved: 'Aprobada', rejected: 'Rechazada' }[n.status]}</span></span>
+          </div>
+          <div class="act">
+            ${n.status !== 'approved' ? `<button class="btn sm ok" data-s="approved">Aceptar</button>` : ''}
+            ${n.status !== 'rejected' ? `<button class="btn sm bad" data-s="rejected">Rechazar</button>` : ''}
+            ${n.status !== 'pending' ? `<button class="btn sm" data-s="pending">A pendiente</button>` : ''}
+          </div></div>`;
+      }).join('') || '<p class="empty">Nada por acá 🎉</p>'}</div>`;
+    AW.$('#fs').onchange = e => { F.status = e.target.value; vNoms(v); };
+    AW.$('#fc').onchange = e => { F.cat = e.target.value; vNoms(v); };
+    AW.$('#fh').onchange = e => { F.hor = e.target.value; vNoms(v); };
+    const bulk = AW.$('#bulk');
+    if (bulk) bulk.onclick = async () => {
+      const ids = list.filter(n => n.status !== 'approved').map(n => n.id);
+      if (!confirm('¿Aprobar ' + ids.length + ' nominaciones?')) return;
+      await AW.api('adminSetStatus', { ids, status: 'approved' }); AW.toast('Aprobadas ✓', 'ok'); load();
+    };
+    v.onclick = async e => {
+      const card = e.target.closest('.ncard'); if (!card) return;
+      const n = D.nominations.find(x => x.id === card.dataset.id);
+      if (e.target.closest('[data-view]')) return viewMedia(n);
+      const sb = e.target.closest('[data-s]');
+      if (sb) {
+        sb.disabled = true;
+        try { await AW.api('adminSetStatus', { id: n.id, status: sb.dataset.s }); n.status = sb.dataset.s; AW.toast('Listo ✓', 'ok'); render(); }
+        catch (err) { AW.toast(err.message, 'err'); sb.disabled = false; }
+      }
+    };
+    v.onchange = async e => {
+      const f = e.target.dataset.f; if (!f) return;
+      const card = e.target.closest('.ncard');
+      try {
+        const upd = await AW.api('adminUpdateNomination', { id: card.dataset.id, [f]: e.target.value });
+        Object.assign(D.nominations.find(x => x.id === card.dataset.id), upd); AW.toast('Guardado ✓', 'ok');
+      } catch (err) { AW.toast(err.message, 'err'); }
+    };
+  }
+  function viewMedia(n) {
+    const isV = /^video/.test(n.mimeType);
+    const m = document.createElement('div'); m.className = 'modal';
+    m.innerHTML = `<div class="box">${isV ? AW.videoEmbed(n) : `<img src="${AW.imgUrl(n.fileId, 1600)}" onerror="this.src='${AW.imgUrl(n.thumbId, 1600)}'">`}
+      <p style="text-align:center">${AW.esc(n.nomineeName)} · ${AW.esc(C(n.categoryId).name)} · ${H(n.horario)} &nbsp; <button class="btn sm">Cerrar</button></p></div>`;
+    m.onclick = e => { if (e.target === m || e.target.tagName === 'BUTTON') m.remove(); };
+    document.body.appendChild(m);
+  }
+
+  // ---------------- FECHAS ----------------
+  const toLocal = iso => { if (!iso) return ''; const d = new Date(iso); const p = x => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+  const toIso = v => v ? new Date(v).toISOString() : '';
+  function vFechas(v) {
+    const ph = D.phase;
+    v.innerHTML = `
+      <section class="card">
+        <h3>Nominaciones</h3>
+        <p class="muted" style="font-size:13px">Si dejas ambas vacías, las nominaciones quedan abiertas siempre.</p>
+        <div class="dates"><div><label class="f">Abren</label><input type="datetime-local" id="nomStart" value="${toLocal(ph.nomStart)}"></div>
+          <div><label class="f">Cierran</label><input type="datetime-local" id="nomEnd" value="${toLocal(ph.nomEnd)}"></div></div>
+        <h3 style="margin-top:22px">Votación</h3>
+        <p class="muted" style="font-size:13px">La página de votar se habilita sola entre estas fechas (hora de Chile según tu computador).</p>
+        <div class="dates"><div><label class="f">Inicio</label><input type="datetime-local" id="voteStart" value="${toLocal(ph.voteStart)}"></div>
+          <div><label class="f">Fin</label><input type="datetime-local" id="voteEnd" value="${toLocal(ph.voteEnd)}"></div></div>
+        <h3 style="margin-top:22px">Administradores extra</h3>
+        <p class="muted" style="font-size:13px">Fijos (en el código): ${D.fixedAdmins.map(AW.esc).join(', ')}. Agrega más correos separados por coma:</p>
+        <input id="admins" value="${AW.esc(D.admins)}" placeholder="profe1@gmail.com, profe2@gmail.com">
+        <p style="margin-top:18px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn gold" id="save">Guardar</button>
+          <button class="btn sm" id="openNow">Abrir votación ahora</button>
+          <button class="btn sm bad" id="closeNow">Cerrar votación ahora</button></p>
+      </section>`;
+    const save = async (over) => {
+      const p = Object.assign({
+        nomStart: toIso(AW.$('#nomStart').value), nomEnd: toIso(AW.$('#nomEnd').value),
+        voteStart: toIso(AW.$('#voteStart').value), voteEnd: toIso(AW.$('#voteEnd').value), admins: AW.$('#admins').value
+      }, over || {});
+      if (p.voteStart && p.voteEnd && p.voteEnd <= p.voteStart) return AW.toast('El fin debe ser después del inicio', 'err');
+      try { D.phase = await AW.api('adminSaveConfig', p); D.admins = p.admins; AW.toast('Fechas guardadas ✓', 'ok'); vFechas(v); } catch (e) { AW.toast(e.message, 'err'); }
+    };
+    AW.$('#save').onclick = () => save();
+    AW.$('#openNow').onclick = () => save({ voteStart: new Date(Date.now() - 60000).toISOString() });
+    AW.$('#closeNow').onclick = () => confirm('¿Cerrar la votación ahora?') && save({ voteEnd: new Date().toISOString() });
+  }
+
+  // ---------------- RESULTADOS ----------------
+  function vRes(v) {
+    const G = D.results.groups;
+    v.innerHTML = `
+      <div class="filters"><button class="btn sm gold" id="csv">Exportar Excel (CSV)</button><button class="btn sm" id="print">Imprimir / PDF</button>
+        <span class="muted" style="font-size:13px">Puedes corregir votos o elegir el ganador a mano. Lo editado queda marcado.</span></div>
+      ${me.categories.map(c => `<section class="card"><h3>${AW.esc(c.name)} <span class="badge ${c.type === 'video' ? 'pending' : 'approved'}">${c.type === 'video' ? 'video' : 'foto'}</span></h3>
+        ${G.filter(g => g.categoryId === c.id).map(g => `<div class="grp" data-key="${g.key}">
+          <div class="gh"><b>${H(g.horario)}</b>
+            <span class="muted" style="font-size:13px">${g.votesCast} votos · ${g.voters} votantes ${g.edited ? '<span class="warn">· editado</span>' : ''} ${g.tie ? '<span class="warn">· ¡EMPATE! salen ambos como ganadores (o elige 1 a mano)</span>' : ''}</span>
+            <span>${g.nominees.length ? `<button class="btn sm gold" data-save>Guardar</button>` : ''} ${g.edited ? '<button class="btn sm" data-clear>Restaurar reales</button>' : ''}</span></div>
+          ${g.nominees.length ? `<table><tr><th>Nominado</th><th>Votos reales</th><th>Votos finales</th><th>Ganador</th></tr>
+            ${g.nominees.map(n => `<tr class="${g.winnerIds.includes(n.id) ? 'win' : ''}"><td><img src="${AW.imgUrl(n.thumbId, 120)}" onerror="this.style.opacity=0">${AW.esc(n.nomineeName)}</td>
+              <td>${n.realVotes}</td><td><input type="number" min="0" data-cnt="${n.id}" value="${n.votes}"></td>
+              <td><input type="checkbox" data-win="${n.id}" ${g.winnerIds.includes(n.id) ? 'checked' : ''}> ${g.winnerIds.includes(n.id) ? '🏆' : ''}</td></tr>`).join('')}</table>`
+          : '<p class="muted" style="font-size:13px">Sin nominados aprobados.</p>'}
+        </div>`).join('')}</section>`).join('')}`;
+    v.onclick = async e => {
+      const grp = e.target.closest('.grp'); if (!grp) return;
+      const g = G.find(x => x.key === grp.dataset.key);
+      if (e.target.matches('[data-save]')) {
+        const counts = {}; let changed = false;
+        AW.$$('[data-cnt]', grp).forEach(i => { const n = g.nominees.find(x => x.id === i.dataset.cnt); const val = Number(i.value); if (val !== n.realVotes) changed = true; counts[i.dataset.cnt] = val; });
+        const winners = AW.$$('[data-win]:checked', grp).map(i => i.dataset.win);
+        if (winners.length > 2) return AW.toast('Máximo 2 ganadores por sección', 'err');
+        const autoTop = (() => { const max = Math.max(...Object.values(counts)); return max > 0 ? Object.keys(counts).filter(k => counts[k] === max) : []; })();
+        const manual = winners.length && winners.sort().join() !== autoTop.sort().join();
+        await AW.api('adminSaveOverride', { key: g.key, counts: changed ? counts : null, winnerIds: manual ? winners : null });
+        AW.toast('Resultado guardado ✓', 'ok'); load();
+      }
+      if (e.target.matches('[data-clear]')) {
+        if (!confirm('¿Volver a los votos reales y ganador automático?')) return;
+        await AW.api('adminClearOverride', { key: g.key }); AW.toast('Restaurado', 'ok'); load();
+      }
+    };
+    AW.$('#csv').onclick = exportCsv;
+    AW.$('#print').onclick = printResults;
+  }
+  function exportCsv() {
+    const q = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
+    const rows = [['Categoría', 'Tipo', 'Horario', 'Nominado', 'Votos reales', 'Votos finales', 'Ganador', 'Votos del grupo', 'Votantes del grupo', 'Nominado por']];
+    D.results.groups.forEach(g => { const c = C(g.categoryId); g.nominees.forEach(n => rows.push([c.name, c.type === 'video' ? 'Video' : 'Foto', H(g.horario), n.nomineeName, n.realVotes, n.votes, g.winnerIds.includes(n.id) ? 'SÍ' : '', g.votesCast, g.voters, n.submitterName])); });
+    const t = D.results.totals;
+    rows.push([]); rows.push(['Total personas que votaron', t.participants]); rows.push(['Total votos emitidos', t.votes]);
+    const csv = '﻿' + rows.map(r => r.map(q).join(';')).join('\r\n');
+    download(new Blob([csv], { type: 'text/csv;charset=utf-8' }), 'Resultados_AcrobaciaLibreAwards2027.csv');
+  }
+  function printResults() {
+    const t = D.results.totals;
+    const w = window.open('', '_blank');
+    w.document.write(`<html><head><meta charset="utf-8"><title>Resultados Acrobacia Libre Awards 2027</title><style>
+      body{font-family:Arial,sans-serif;color:#111;margin:30px}h1{margin:0}h2{margin:26px 0 6px;border-bottom:2px solid #c9a13b;padding-bottom:4px}
+      table{width:100%;border-collapse:collapse;margin:6px 0 14px;font-size:13px}td,th{border-bottom:1px solid #ddd;padding:5px;text-align:left}.w{font-weight:bold;background:#fff6d8}
+      h3{margin:10px 0 2px;font-size:14px}.m{color:#666;font-size:12px}</style></head><body>
+      <h1>Acrobacia Libre Awards 2027 — Resultados</h1><p class="m">Generado ${new Date().toLocaleString('es-CL')} · ${t.participants} personas votaron · ${t.votes} votos</p>
+      ${me.categories.map(c => `<h2>${AW.esc(c.name)}</h2>${D.results.groups.filter(g => g.categoryId === c.id && g.nominees.length).map(g => `<h3>${H(g.horario)} <span class="m">(${g.votesCast} votos, ${g.voters} votantes)</span></h3>
+        <table>${g.nominees.map(n => `<tr class="${g.winnerIds.includes(n.id) ? 'w' : ''}"><td>${g.winnerIds.includes(n.id) ? '🏆 ' : ''}${AW.esc(n.nomineeName)}</td><td>${n.votes} votos${n.edited ? ' (editado, real ' + n.realVotes + ')' : ''}</td></tr>`).join('')}</table>`).join('')}`).join('')}
+      <script>window.onload=()=>window.print()<\/script></body></html>`);
+    w.document.close();
+  }
+  function download(blob, name) {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  }
+
+  // ---------------- PRESENTACIÓN ----------------
+  function vPres(v) {
+    const vids = D.results.groups.filter(g => C(g.categoryId).type === 'video').flatMap(g => g.nominees);
+    v.innerHTML = `
+      <section class="card">
+        <h3>Presentación de la premiación</h3>
+        <p class="muted">Arma sola todas las diapositivas: portada, cada categoría, nominados por horario, suspenso, ganador y la escena con los 4 ganadores de cada categoría. Los videos muestran todos los nominados y luego el ganador.</p>
+        <label class="check"><input type="checkbox" id="showVotes" checked> Mostrar cantidad de votos y porcentajes en pantalla</label>
+        <p style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+          <button class="btn" id="preview">Vista previa (con internet)</button>
+          <button class="btn gold" id="export">Exportar HTML offline</button></p>
+        <div class="progress" id="pp" hidden><i></i></div><p class="muted" id="pt" style="font-size:13px"></p>
+      </section>
+      <section class="card">
+        <h3>Para que funcione sin internet</h3>
+        <ol class="muted" style="line-height:1.8;font-size:14px">
+          <li>Exporta el HTML: las <b>fotos van dentro del archivo</b>.</li>
+          <li>Los <b>videos</b> son pesados, así que van aparte: en Drive abre la carpeta <a target="_blank" href="${D.links.media}">media</a>, clic derecho → <b>Descargar</b>, y descomprime.</li>
+          <li>Deja todo así: <code>presentacion.html</code> y al lado la carpeta <code>media/</code> con los videos.</li>
+          <li>Abre el HTML en Chrome o Edge, pulsa <b>F</b> para pantalla completa y avanza con → o un clicker.</li>
+        </ol>
+        ${vids.length ? `<p class="muted" style="font-size:13px">Videos que usa la presentación (${vids.length}): ${vids.map(n => `<code>media/${n.fileId}.${n.ext}</code>`).join(' ')}</p>
+          <p class="muted" style="font-size:13px">Tip: si los videos son del iPhone (HEVC/.MOV) y no se ven en el PC, conviértelos a MP4 H.264 manteniendo el mismo nombre (ver README).</p>` : ''}
+      </section>`;
+    AW.$('#preview').onclick = async () => {
+      const html = await buildHtml(false);
+      window.open(URL.createObjectURL(new Blob([html], { type: 'text/html' })), '_blank');
+    };
+    AW.$('#export').onclick = async () => {
+      const b = AW.$('#export'); b.disabled = true;
+      try {
+        const html = await buildHtml(true);
+        download(new Blob([html], { type: 'text/html' }), 'presentacion.html');
+        AW.toast('HTML exportado ✓', 'ok');
+      } catch (e) { AW.toast(e.message, 'err'); } finally { b.disabled = false; }
+    };
+  }
+  async function loadTemplate() {
+    if (window.PRESENTATION_TEMPLATE) return window.PRESENTATION_TEMPLATE;
+    await new Promise((ok, fail) => { const s = document.createElement('script'); s.src = 'presentacion-template.js'; s.onload = ok; s.onerror = () => fail(new Error('Falta presentacion-template.js')); document.head.appendChild(s); });
+    return window.PRESENTATION_TEMPLATE;
+  }
+  async function buildHtml(embed) {
+    const sv = AW.$('#showVotes') ? AW.$('#showVotes').checked : true;
+    await load(); // datos frescos
+    if (AW.$('#showVotes')) AW.$('#showVotes').checked = sv;
+    const pp = AW.$('#pp'), pt = AW.$('#pt'), bar = pp && pp.querySelector('i');
+    const R = D.results;
+    const images = {};
+    if (embed) {
+      const ids = [...new Set(R.groups.flatMap(g => g.nominees.map(n => n.thumbId)).filter(Boolean))];
+      if (pp) pp.hidden = false;
+      for (let i = 0; i < ids.length; i += 10) {
+        Object.assign(images, await AW.api('adminGetImages', { ids: ids.slice(i, i + 10) }));
+        const p = Math.min(1, (i + 10) / ids.length);
+        if (bar) bar.style.width = (p * 100) + '%'; if (pt) pt.textContent = 'Descargando fotos… ' + Math.round(p * 100) + '%';
+      }
+    }
+    const data = {
+      event: D.event, generatedAt: new Date().toISOString(), options: { showVotes: sv },
+      horarios: me.horarios,
+      totals: { participants: R.totals.participants, votes: R.groups.reduce((s, g) => s + g.votesCast, 0) },
+      categories: me.categories.map(c => ({
+        id: c.id, name: c.name, type: c.type,
+        groups: R.groups.filter(g => g.categoryId === c.id).map(g => ({
+          horario: g.horario, horarioName: H(g.horario), votesCast: g.votesCast, voters: g.voters, winnerIds: g.winnerIds,
+          nominees: g.nominees.slice().sort((a, b) => a.nomineeName.localeCompare(b.nomineeName, 'es')).map(n => ({
+            id: n.id, name: n.nomineeName, desc: n.description, votes: n.votes,
+            img: n.thumbId ? (embed ? images[n.thumbId] || null : AW.imgUrl(n.thumbId, 1600)) : null,
+            video: c.type === 'video' ? { local: 'media/' + n.fileId + '.' + n.ext, drive: AW.isMock ? '' : n.fileId } : null
+          }))
+        }))
+      }))
+    };
+    const tpl = await loadTemplate();
+    const json = JSON.stringify(data).replace(/</g, '\\u003c');
+    if (pt) pt.textContent = embed ? 'Listo ✓' : '';
+    return tpl.replace('/*__DATA__*/null', () => json);
+  }
+
+  // ---------------- USUARIOS ----------------
+  function vUsers(v) {
+    v.innerHTML = `<section class="card"><h3>Usuarios (${D.users.length})</h3>
+      <p class="muted" style="font-size:13px">Si alguien eligió mal su horario, cámbialo acá. Ojo: sus votos ya emitidos en categorías de foto quedan en el horario anterior.</p>
+      <table><tr><th>Nombre</th><th>Correo</th><th>Horario</th></tr>
+      ${D.users.map(u => `<tr><td>${AW.esc(u.name)}</td><td>${AW.esc(u.email)}</td><td><select data-email="${AW.esc(u.email)}" style="width:auto;padding:6px 10px">
+        <option value="">(sin elegir)</option>${me.horarios.map(h => `<option value="${h.id}" ${u.horario === h.id ? 'selected' : ''}>${h.name}</option>`).join('')}</select></td></tr>`).join('')}
+      </table></section>`;
+    v.onchange = async e => {
+      const s = e.target.closest('[data-email]'); if (!s) return;
+      try { await AW.api('adminSetUserHorario', { email: s.dataset.email, horario: s.value }); AW.toast('Horario actualizado ✓', 'ok'); }
+      catch (err) { AW.toast(err.message, 'err'); }
+    };
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

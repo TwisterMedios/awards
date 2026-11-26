@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="es">
+<head>
+<title>Nominar · Acrobacia Libre Awards 2027</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07060b">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="config.js"></script>
+<script src="common.js"></script>
+
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"><path d="M20 8h24v14a12 12 0 0 1-24 0V8z"/><path d="M20 13H10v5a10 10 0 0 0 10 10M44 13h10v5a10 10 0 0 1-10 10"/><path d="M32 34v10M22 56h20l-3-12H25z"/></svg><b>Acrobacia Libre <span>Awards</span></b></a>
+  <div id="userchip"></div>
+</header>
+
+<main class="wrap">
+  <section class="hero" style="padding-bottom:0">
+    <p class="eyebrow">Paso 1</p>
+    <h1 style="font-size:clamp(40px,9vw,70px)"><span class="gold-text">Nominaciones</span></h1>
+  </section>
+  <div id="app"><div class="loader"></div></div>
+</main>
+<script>
+(async () => {
+  const app = AW.$('#app');
+  const me = await AW.boot(app, { needHorario: true });
+  const H = me.horarios.find(h => h.id === me.user.horario);
+  if (!me.phase.nomOpen && !me.isAdmin) {
+    app.innerHTML = `<section class="card empty"><h2>Nominaciones cerradas</h2>
+      <p>${me.phase.nomStart && new Date(me.phase.nomStart) > new Date() ? 'Abren el ' + AW.fmtDate(me.phase.nomStart) : 'Ya no se reciben nominaciones.'}</p>
+      <a class="btn" href="votar.html">Ir a votar</a></section><div id="mine"></div>`;
+    return renderMine();
+  }
+  let type = 'photo', cat = null, file = null;
+  app.innerHTML = `
+    <section class="card">
+      <h3>1 · ¿Foto o video?</h3>
+      <div class="type-tabs">
+        <button class="chip on" data-t="photo">${''}Categorías con foto</button>
+        <button class="chip" data-t="video">Categorías con video</button>
+      </div>
+      <p class="muted" id="typehint" style="font-size:13px"></p>
+      <h3 style="margin-top:18px">2 · Categoría</h3>
+      <div class="cat-chips" id="cats"></div>
+      <label class="f" for="nname">3 · Nombre del nominado</label>
+      <input id="nname" maxlength="60" placeholder="Ej: Cami Rojas" autocomplete="off">
+      <label class="f" for="ndesc">Comentario (opcional)</label>
+      <input id="ndesc" maxlength="200" placeholder="Ej: la vez que se cayó del trapecio 😂">
+      <label class="f">4 · Archivo</label>
+      <label class="drop" id="drop">
+        <input type="file" id="file">
+        <div id="preview"><b>Toca para elegir</b><br><span class="muted" id="acc"></span></div>
+      </label>
+      <div class="progress" id="prog" hidden><i></i></div>
+      <p class="muted" id="progtxt" style="font-size:13px"></p>
+      <button class="btn gold" id="send" style="width:100%;margin-top:14px">Enviar nominación</button>
+      <p class="muted" style="font-size:12px;text-align:center">La organización revisa cada nominación antes de publicarla.</p>
+    </section>
+    <div id="mine"></div>`;
+
+  const cats = AW.$('#cats'), inp = AW.$('#file');
+  function renderType() {
+    AW.$$('.type-tabs .chip').forEach(b => b.classList.toggle('on', b.dataset.t === type));
+    AW.$('#typehint').textContent = type === 'photo'
+      ? 'Nominas a alguien de tu horario: ' + H.name + '.'
+      : 'Las categorías de video son para todos los horarios.';
+    const list = me.categories.filter(c => c.type === type);
+    if (!cat || cat.type !== type) cat = null;
+    cats.innerHTML = list.map(c => `<button class="chip ${cat && cat.id === c.id ? 'on' : ''}" data-c="${c.id}">${AW.esc(c.name)}</button>`).join('');
+    AW.$$('.chip', cats).forEach(b => b.onclick = () => { cat = me.categories.find(c => c.id === b.dataset.c); renderType(); });
+    inp.accept = type === 'photo' ? 'image/*' : 'video/*';
+    AW.$('#acc').textContent = type === 'photo' ? 'Foto JPG o PNG' : 'Video MP4 / MOV (máx ' + me.maxUploadMB + ' MB)';
+    if (file && !file.type.startsWith(type === 'photo' ? 'image/' : 'video/')) setFile(null);
+  }
+  AW.$$('.type-tabs .chip').forEach(b => b.onclick = () => { type = b.dataset.t; renderType(); });
+  function setFile(f) {
+    file = f;
+    const pv = AW.$('#preview');
+    if (!f) { inp.value = ''; pv.innerHTML = '<b>Toca para elegir</b><br><span class="muted" id="acc"></span>'; renderType(); return; }
+    const u = URL.createObjectURL(f);
+    pv.innerHTML = (f.type.startsWith('image/') ? `<img src="${u}">` : `<video src="${u}" controls playsinline muted></video>`)
+      + `<span class="muted">${AW.esc(f.name)} · ${(f.size / 1048576).toFixed(1)} MB — toca para cambiar</span>`;
+  }
+  inp.onchange = () => {
+    const f = inp.files[0]; if (!f) return;
+    if (!f.type.startsWith(type === 'photo' ? 'image/' : 'video/')) return AW.toast('Ese archivo no es ' + (type === 'photo' ? 'una foto' : 'un video'), 'err');
+    if (f.size > me.maxUploadMB * 1048576) return AW.toast('Muy pesado: máximo ' + me.maxUploadMB + ' MB', 'err');
+    setFile(f);
+  };
+  const drop = AW.$('#drop');
+  drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+  drop.ondragleave = () => drop.classList.remove('over');
+  drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); const dt = new DataTransfer(); dt.items.add(e.dataTransfer.files[0]); inp.files = dt.files; inp.onchange(); };
+
+  AW.$('#send').onclick = async () => {
+    const name = AW.$('#nname').value.trim();
+    if (!cat) return AW.toast('Elige una categoría', 'err');
+    if (!name) return AW.toast('Escribe el nombre del nominado', 'err');
+    if (!file) return AW.toast('Falta la foto o el video', 'err');
+    const btn = AW.$('#send'), prog = AW.$('#prog'), bar = prog.querySelector('i'), txt = AW.$('#progtxt');
+    btn.disabled = true; prog.hidden = false; bar.style.width = '0';
+    window.onbeforeunload = () => 'Se está subiendo tu archivo';
+    try {
+      txt.textContent = 'Preparando…';
+      const thumbBlob = await AW.makeThumb(file, 1600);
+      if (type === 'photo' && !thumbBlob) throw new Error('No pude leer la foto. Prueba con JPG o PNG.');
+      let thumbId = '';
+      if (thumbBlob) {
+        thumbId = await AW.uploadFile(new File([thumbBlob], 'thumb.jpg', { type: 'image/jpeg' }), 'thumb', null, 'thumb.jpg');
+      }
+      const fileId = await AW.uploadFile(file, 'main', p => {
+        bar.style.width = (p * 100).toFixed(0) + '%';
+        txt.textContent = 'Subiendo… ' + (p * 100).toFixed(0) + '%' + (file.size > 30e6 ? ' (no cierres esta página)' : '');
+      });
+      txt.textContent = 'Guardando nominación…';
+      await AW.api('createNomination', { categoryId: cat.id, nomineeName: name, description: AW.$('#ndesc').value.trim(), fileId, thumbId, fileName: file.name });
+      AW.toast('¡Nominación enviada! Queda pendiente de aprobación.', 'ok');
+      AW.$('#nname').value = ''; AW.$('#ndesc').value = ''; setFile(null);
+      txt.textContent = ''; prog.hidden = true;
+      renderMine();
+    } catch (e) {
+      AW.toast(e.message, 'err'); txt.textContent = 'Error: ' + e.message;
+    } finally { btn.disabled = false; window.onbeforeunload = null; }
+  };
+  renderType();
+  renderMine();
+
+  async function renderMine() {
+    const box = AW.$('#mine');
+    const list = await AW.api('myNominations');
+    if (!list.length) { box.innerHTML = ''; return; }
+    const st = { pending: 'Pendiente', approved: 'Aprobada', rejected: 'Rechazada' };
+    box.innerHTML = `<section class="card"><h3>Mis nominaciones</h3><div class="list">${list.map(n => {
+      const c = me.categories.find(k => k.id === n.categoryId) || { name: n.categoryId };
+      return `<div class="row"><img src="${AW.imgUrl(n.thumbId, 200)}" alt="" onerror="this.style.visibility='hidden'">
+        <div class="grow"><b>${AW.esc(n.nomineeName)}</b><br><span class="muted" style="font-size:13px">${AW.esc(c.name)}</span></div>
+        <span class="badge ${n.status}">${st[n.status]}</span>
+        ${n.status === 'pending' ? `<button class="btn sm bad" data-del="${n.id}">Borrar</button>` : ''}</div>`;
+    }).join('')}</div></section>`;
+    AW.$$('[data-del]', box).forEach(b => b.onclick = async () => {
+      if (!confirm('¿Borrar esta nominación?')) return;
+      try { await AW.api('deleteMyNomination', { id: b.dataset.del }); renderMine(); } catch (e) { AW.toast(e.message, 'err'); }
+    });
+  }
+})();
+</script>
+</body>
+</html>
